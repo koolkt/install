@@ -19,9 +19,8 @@ create_partitions(){
 sgdisk --zap-all ${DRIVE}
   sgdisk --clear \
          --new=1:0:+550MiB --typecode=1:ef00 --change-name=1:EFI \
-         --new=2:0:+1GiB   --typecode=2:8200 --change-name=2:cryptboot \
-         --new=3:0:+16GiB   --typecode=2:8200 --change-name=3:swap \
-         --new=4:0:0       --typecode=3:8300 --change-name=4:cryptroot \
+         --new=2:0:+1GiB   --typecode=2:8300 --change-name=2:cryptboot \
+         --new=3:0:0       --typecode=3:8300 --change-name=3:cryptroot \
            ${DRIVE}
 }
 
@@ -88,28 +87,26 @@ conf_locale_and_time() {
 
 conf_mkinitcpio() {
 #	
-HOOKS=(base systemd udev autodetect keyboard sd-vsconsole modconf block keymap sd-encrypt sd-lvm2 filesystems fsck)
-  sed -i '/^HOOK/s/block/block keymap sd-encrypt/' ${MOUNTPOINT}/etc/mkinitcpio.conf
-  sed -i '/^HOOK/s/filesystems/sd-lvm2 filesystems/' ${MOUNTPOINT}/etc/mkinitcpio.conf
+  sed -i -e "/^HOOK/s/.*/HOOKS=(base systemd udev autodetect keyboard sd-vsconsole modconf block keymap sd-encrypt sd-lvm2 filesystems fsck)\g"
   chroot_cmd "mkinitcpio -p linux"
 }
 
 # add boot partition to crypttab (replace <identifier> with UUID from 'blkid /dev/sda2')
 conf_grub(){
-  sed -i -e "s/GRUB_CMDLINE_LINUX=\"\"/GRUB_CMDLINE_LINUX=\"cryptdevice=\/dev\/:cryptsystem:allow-discards\"/g" ${MOUNTPOINT}/etc/default/grub
+  sed -i -e "s/GRUB_CMDLINE_LINUX=\"\"/GRUB_CMDLINE_LINUX=\"cryptdevice=\/dev\/mapper\/lvm-root:cryptsystem:allow-discards\"/g" ${MOUNTPOINT}/etc/default/grub
   echo "GRUB_ENABLE_CRYPTODISK=y" >> ${MOUNTPOINT}/etc/default/grub
   echo "cryptboot  ${BOOT_PART}      none        noauto,luks" >> ${MOUNTPOINT}/etc/crypttab
-  #chroot_cmd "grub-mkconfig -o /boot/grub/grub.cfg"
-  #chroot_cmd "grub-install --target=x86_64-efi --efi-directory=${EFI_MOUNTPOINT} --bootloader-id=arch_grub --recheck"
+  chroot_cmd "grub-install --target=x86_64-efi --efi-directory=${EFI_MOUNTPOINT} --bootloader-id=arch_grub --recheck"
+  chroot_cmd "grub-mkconfig -o /boot/grub/grub.cfg"
 }
 
 
-#create_partitions
-#setup_luks
-#setup_LVM
-#format_parts
-#mount_parts
-#install_base
-#conf_locale_and_time
-#conf_mkinitcpio
+create_partitions
+setup_luks
+setup_LVM
+format_parts
+mount_parts
+install_base
+conf_locale_and_time
+conf_mkinitcpio
 conf_grub
