@@ -43,8 +43,8 @@ setup_LVM() {
 format_parts(){
   mkfs.fat -F32 -n EFI /dev/disk/by-partlabel/EFI
   mkfs.ext2 /dev/mapper/cryptboot
-  mkfs.f2fs /dev/mapper/lvm-root
-  mkfs.f2fs /dev/mapper/lvm-home
+  mkfs.f2fs -f /dev/mapper/lvm-root
+  mkfs.f2fs -f /dev/mapper/lvm-home
   mkswap -L swap /dev/mapper/lvm-swap
   swapon -d /dev/mapper/lvm-swap
 }
@@ -54,7 +54,7 @@ mount_parts() {
   mkdir  ${MOUNTPOINT}/home
   mount /dev/mapper/lvm-home ${MOUNTPOINT}/home
   mkdir  ${MOUNTPOINT}/boot
-  mount dev/mapper/cryptboot ${MOUNTPOINT}/boot
+  mount /dev/mapper/cryptboot ${MOUNTPOINT}/boot
   mkdir  ${MOUNTPOINT}${EFI_MOUNTPOINT}
   mount LABEL=EFI  ${MOUNTPOINT}${EFI_MOUNTPOINT}
 }
@@ -100,7 +100,7 @@ conf_grub(){
 #create_partitions
 #setup_luks
 #setup_LVM
-format_parts
+#format_parts
 mount_parts
 #install_base
 #conf_locale_and_time
