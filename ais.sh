@@ -43,10 +43,10 @@ setup_LVM() {
 format_parts(){
   mkfs.fat -F32 -n EFI /dev/disk/by-partlabel/EFI
   mkfs.ext2 /dev/mapper/cryptboot
+  mkfs.f2fs /dev/mapper/lvm-root
+  mkfs.f2fs /dev/mapper/lvm-home
   mkswap -L swap /dev/mapper/lvm-swap
   swapon -d /dev/mapper/lvm-swap
-  resize.f2fs /dev/mapper/lvm-root
-  resize.f2fs /dev/mapper/lvm-home
 }
 
 mount_parts() {
@@ -89,7 +89,7 @@ conf_mkinitcpio() {
 
 # add boot partition to crypttab (replace <identifier> with UUID from 'blkid /dev/sda2')
 conf_grub(){
-  sed -i -e 's/GRUB_CMDLINE_LINUX="\(.\+\)"/GRUB_CMDLINE_LINUX="\1 cryptdevice=\/dev\/'"${MAIN_PART}"':cryptsystem"/g' -e 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="cryptdevice=\/dev\/'"${MAIN_PART}"':cryptsystem"/g' ${MOUNTPOINT}/etc/default/grub
+  sed -i -e 's/GRUB_CMDLINE_LINUX="\(.\+\)"/GRUB_CMDLINE_LINUX="\1 cryptdevice=\/dev\/'"${MAIN_PART}"':cryptsystem:allow-discards"/g' -e 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="cryptdevice=\/dev\/'"${MAIN_PART}"':cryptsystem:allow-discards"/g' ${MOUNTPOINT}/etc/default/grub
   echo "GRUB_ENABLE_CRYPTODISK=y" >> ${MOUNTPOINT}/etc/default/grub
   echo "cryptboot  ${BOOT_PART}      none        noauto,luks" >> ${MOUNTPOINT}/etc/crypttab
   arch-chroot "grub-mkconfig -o /boot/grub/grub.cfg"
@@ -97,11 +97,11 @@ conf_grub(){
 }
 
 
-create_partitions
+#create_partitions
 #setup_luks
 #setup_LVM
-#format_parts
-#mount_parts
+format_parts
+mount_parts
 #install_base
 #conf_locale_and_time
 #conf_mkinitcpio
