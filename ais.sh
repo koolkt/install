@@ -9,6 +9,9 @@ MOUNTPOINT="/mnt"
 
 loadkeys $KEYMAP
 setfont sun12x22
+chroot_cmd() {
+	arch-chroot ${MOUNTPOINT} /bin/bash -c "${1}"
+}
 
 #SETUP PARTITION{{{
 create_partitions(){
@@ -60,40 +63,44 @@ mount_parts() {
 }
 
 install_base() {
+  pacstrap ${MOUNTPOINT} base grub os-prober efibootmgr dosfstools grub-efi-x86_64 intel-ucode iw wireless_tools dhcpcd dialog
   genfstab -L -p ${MOUNTPOINT} >> ${MOUNTPOINT}/etc/fstab
   cat ${MOUNTPOINT}/etc/fstab
-  pacstrap ${MOUNTPOINT} base grub os-prober efibootmgr dosfstools grub-efi-x86_64 intel-ucode iw wireless_tools wpa_actiond wpa_supplicant dialog
 }
 
 conf_locale_and_time() {
-  ln -sf /usr/share/zoneinfo/America/New_York /etc/localtime
-  hwclock --systohc --utc
+  chroot_cmd "ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime"
+  chroot_cmd "hwclock --systohc --utc"
   # uncomment desired localizations
-  echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+  echo "en_US.UTF-8 UTF-8" >> /mnt/etc/locale.gen
 
   # generate localization settings
-  locale-gen
-  echo LANGUAGE=en_US >> /etc/locale.conf
-  echo LANG=en_US.UTF-8 >> /etc/locale.conf
+  chroot_cmd "locale-gen"
+  echo "LANGUAGE=en_US" >> /mnt/etc/locale.conf
+  echo "LANG=en_US.UTF-8" >> /mnt/etc/locale.conf
   echo "KEYMAP=fr" > ${MOUNTPOINT}/etc/vconsole.conf
-  echo ${HOSTNAME} > /etc/hostname
-  arch_chroot "sed -i '/127.0.0.1/s/$/ '${HOSTNAME}'/' /etc/hosts"
-  arch_chroot "sed -i '/::1/s/$/ '${HOSTNAME}'/' /etc/hosts"
+  echo "${HOSTNAME}" > /mnt/etc/hostname
+  echo "12.0.0.1      localhost" > ${MOUNTPOINT}/etc/hosts
+  echo "::1           localhost" >> ${MOUNTPOINT}/etc/hosts
+  echo "127.0.0.1      ${HOSTNAME}.localdomain ${HOSTNAME}" >> ${MOUNTPOINT}/etc/hosts
+  sed -i '/::1/s/$/'${HOSTNAME}'/' ${MOUNTPOINT}/etc/hosts
 }
 
 conf_mkinitcpio() {
-  sed -i '/^HOOK/s/block/block keymap encrypt/' ${MOUNTPOINT}/etc/mkinitcpio.conf
-  sed -i '/^HOOK/s/filesystems/lvm2 filesystems/' ${MOUNTPOINT}/etc/mkinitcpio.conf
-  mkinitcpio -p linux
+#	
+HOOKS=(base systemd udev autodetect keyboard sd-vsconsole modconf block keymap sd-encrypt sd-lvm2 filesystems fsck)
+  sed -i '/^HOOK/s/block/block keymap sd-encrypt/' ${MOUNTPOINT}/etc/mkinitcpio.conf
+  sed -i '/^HOOK/s/filesystems/sd-lvm2 filesystems/' ${MOUNTPOINT}/etc/mkinitcpio.conf
+  chroot_cmd "mkinitcpio -p linux"
 }
 
 # add boot partition to crypttab (replace <identifier> with UUID from 'blkid /dev/sda2')
 conf_grub(){
-  sed -i -e 's/GRUB_CMDLINE_LINUX="\(.\+\)"/GRUB_CMDLINE_LINUX="\1 cryptdevice=\/dev\/'"${MAIN_PART}"':cryptsystem:allow-discards"/g' -e 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="cryptdevice=\/dev\/'"${MAIN_PART}"':cryptsystem:allow-discards"/g' ${MOUNTPOINT}/etc/default/grub
+  sed -i -e "s/GRUB_CMDLINE_LINUX=\"\"/GRUB_CMDLINE_LINUX=\"cryptdevice=\/dev\/:cryptsystem:allow-discards\"/g" ${MOUNTPOINT}/etc/default/grub
   echo "GRUB_ENABLE_CRYPTODISK=y" >> ${MOUNTPOINT}/etc/default/grub
   echo "cryptboot  ${BOOT_PART}      none        noauto,luks" >> ${MOUNTPOINT}/etc/crypttab
-  arch-chroot "grub-mkconfig -o /boot/grub/grub.cfg"
-  arch-chroot "grub-install --target=x86_64-efi --efi-directory=${EFI_MOUNTPOINT} --bootloader-id=arch_grub --recheck"
+  #chroot_cmd "grub-mkconfig -o /boot/grub/grub.cfg"
+  #chroot_cmd "grub-install --target=x86_64-efi --efi-directory=${EFI_MOUNTPOINT} --bootloader-id=arch_grub --recheck"
 }
 
 
@@ -101,8 +108,8 @@ conf_grub(){
 #setup_luks
 #setup_LVM
 #format_parts
-mount_parts
+#mount_parts
 #install_base
 #conf_locale_and_time
 #conf_mkinitcpio
-#conf_grub
+conf_grub
