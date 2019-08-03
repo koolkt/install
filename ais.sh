@@ -1,32 +1,34 @@
 #mount -o remount,size=2G /run/archiso/cowspace
-DRIVE=""
+set -e
+DRIVE="/dev/nvme0n1"
 KEYMAP="fr"
-MAIN_PART=""
-BOOT_PART=""
-EFI_MOUNTPOINT=""
-MOUNTPOINT=""
+MAIN_PART="/dev/disk/by-partlabel/cryptroot"
+BOOT_PART="/dev/disk/by-partlabel/cryptboot"
+EFI_MOUNTPOINT="/boot/efi"
+MOUNTPOINT="/mnt"
 
 loadkeys $KEYMAP
 setfont sun12x22
 
 #SETUP PARTITION{{{
 create_partitions(){
-sgdisk --zap-all $DRIVE
+	echo $DRIVE
+sgdisk --zap-all ${DRIVE}
   sgdisk --clear \
          --new=1:0:+550MiB --typecode=1:ef00 --change-name=1:EFI \
          --new=2:0:+1GiB   --typecode=2:8200 --change-name=2:cryptboot \
-         --new=2:0:+16GiB   --typecode=2:8200 --change-name=2:swap \
-         --new=3:0:0       --typecode=3:8300 --change-name=3:cryptroot \
-           $DRIVE
+         --new=3:0:+16GiB   --typecode=2:8200 --change-name=3:swap \
+         --new=4:0:0       --typecode=3:8300 --change-name=4:cryptroot \
+           ${DRIVE}
 }
 
 setup_luks(){
   echo "\nCreate encrypted main partition\n"
-  cryptsetup --cipher aes-xts-plain64 --key-size 512 --hash sha512 --iter-time 5000 --use-random --verify-passphrase luksFormat $MAIN_PART
-  cryptsetup open --type luks $MAIN_PART cryptsystem
+  cryptsetup --cipher aes-xts-plain64 --key-size 512 --hash sha512 --iter-time 5000 --use-random --verify-passphrase luksFormat ${MAIN_PART}
+  cryptsetup open --type luks ${MAIN_PART} cryptsystem
   echo "\nCreate encrypted boot partition\n"
-  cryptsetup --cipher aes-xts-plain64 --key-size 512 --hash sha512 --iter-time 5000 --use-random --verify-passphrase luksFormat $BOOT_PART
-  cryptsetup open --type luks $BOOT_PART cryptboot
+  cryptsetup --cipher aes-xts-plain64 --key-size 512 --hash sha512 --iter-time 5000 --use-random --verify-passphrase luksFormat ${BOOT_PART}
+  cryptsetup open --type luks ${BOOT_PART} cryptboot
 
 }
 
@@ -90,6 +92,17 @@ conf_grub(){
   sed -i -e 's/GRUB_CMDLINE_LINUX="\(.\+\)"/GRUB_CMDLINE_LINUX="\1 cryptdevice=\/dev\/'"${MAIN_PART}"':cryptsystem"/g' -e 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="cryptdevice=\/dev\/'"${MAIN_PART}"':cryptsystem"/g' ${MOUNTPOINT}/etc/default/grub
   echo "GRUB_ENABLE_CRYPTODISK=y" >> ${MOUNTPOINT}/etc/default/grub
   echo "cryptboot  ${BOOT_PART}      none        noauto,luks" >> ${MOUNTPOINT}/etc/crypttab
-  arch_chroot "grub-mkconfig -o /boot/grub/grub.cfg"
-  arch_chroot "grub-install --target=x86_64-efi --efi-directory=${EFI_MOUNTPOINT} --bootloader-id=arch_grub --recheck"
+  arch-chroot "grub-mkconfig -o /boot/grub/grub.cfg"
+  arch-chroot "grub-install --target=x86_64-efi --efi-directory=${EFI_MOUNTPOINT} --bootloader-id=arch_grub --recheck"
 }
+
+
+create_partitions
+#setup_luks
+#setup_LVM
+#format_parts
+#mount_parts
+#install_base
+#conf_locale_and_time
+#conf_mkinitcpio
+#conf_grub
