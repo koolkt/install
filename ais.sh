@@ -87,7 +87,7 @@ conf_locale_and_time() {
 
 conf_mkinitcpio() {
 #	
-  sed -i -e "s/HOOKS=.*/HOOKS=(base systemd udev autodetect keyboard consolefont modconf block keymap encrypt lvm2 filesystems fsck)/g"
+  sed -i -e "s/HOOKS=.*/HOOKS=(base systemd udev autodetect keyboard consolefont modconf block keymap encrypt lvm2 filesystems fsck)/g" ${MOUNTPOINT}/etc/mkinitcpio.conf
   chroot_cmd "mkinitcpio -p linux"
 }
 
@@ -101,12 +101,12 @@ conf_grub(){
 }
 
 mount_system() {
+  cryptsetup open --type luks ${BOOT_PART} cryptboot
+  cryptsetup open --type luks ${MAIN_PART} cryptsystem
   mount /dev/mapper/lvm-root ${MOUNTPOINT}
-  #cryptsetup open --type luks ${BOOT_PART} cryptboot
   mount /dev/mapper/lvm-home ${MOUNTPOINT}/home
   mount /dev/mapper/cryptboot ${MOUNTPOINT}/boot
   mount LABEL=EFI  ${MOUNTPOINT}${EFI_MOUNTPOINT}
-  #cryptsetup open --type luks ${MAIN_PART} cryptsystem
   
 }
 
