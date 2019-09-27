@@ -29,7 +29,7 @@ setup_luks(){
   cryptsetup --cipher aes-xts-plain64 --key-size 512 --hash sha512 --iter-time 5000 --use-random --verify-passphrase luksFormat ${MAIN_PART}
   cryptsetup open --type luks ${MAIN_PART} cryptsystem
   echo "\nCreate encrypted boot partition\n"
-  cryptsetup --cipher aes-xts-plain64 --key-size 512 --hash sha512 --iter-time 5000 --use-random --verify-passphrase luksFormat ${BOOT_PART}
+  cryptsetup --type luks1 --cipher aes-xts-plain64 --key-size 512 --hash sha512 --iter-time 5000 --use-random --verify-passphrase luksFormat ${BOOT_PART}
   cryptsetup open --type luks ${BOOT_PART} cryptboot
 
 }
@@ -87,26 +87,36 @@ conf_locale_and_time() {
 
 conf_mkinitcpio() {
 #	
-  sed -i -e "/^HOOK/s/.*/HOOKS=(base systemd udev autodetect keyboard sd-vsconsole modconf block keymap sd-encrypt sd-lvm2 filesystems fsck)\g"
+  sed -i -e "s/HOOKS=.*/HOOKS=(base systemd udev autodetect keyboard consolefont modconf block keymap encrypt lvm2 filesystems fsck)/g"
   chroot_cmd "mkinitcpio -p linux"
 }
 
 # add boot partition to crypttab (replace <identifier> with UUID from 'blkid /dev/sda2')
 conf_grub(){
-  sed -i -e "s/GRUB_CMDLINE_LINUX=\"\"/GRUB_CMDLINE_LINUX=\"cryptdevice=\/dev\/mapper\/lvm-root:cryptsystem:allow-discards\"/g" ${MOUNTPOINT}/etc/default/grub
+  sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"cryptdevice=\/dev\/mapper\/lvm-root:cryptsystem:allow-discards\"/g" ${MOUNTPOINT}/etc/default/grub
   echo "GRUB_ENABLE_CRYPTODISK=y" >> ${MOUNTPOINT}/etc/default/grub
   echo "cryptboot  ${BOOT_PART}      none        noauto,luks" >> ${MOUNTPOINT}/etc/crypttab
   chroot_cmd "grub-install --target=x86_64-efi --efi-directory=${EFI_MOUNTPOINT} --bootloader-id=arch_grub --recheck"
   chroot_cmd "grub-mkconfig -o /boot/grub/grub.cfg"
 }
 
+mount_system() {
+  mount /dev/mapper/lvm-root ${MOUNTPOINT}
+  #cryptsetup open --type luks ${BOOT_PART} cryptboot
+  mount /dev/mapper/lvm-home ${MOUNTPOINT}/home
+  mount /dev/mapper/cryptboot ${MOUNTPOINT}/boot
+  mount LABEL=EFI  ${MOUNTPOINT}${EFI_MOUNTPOINT}
+  #cryptsetup open --type luks ${MAIN_PART} cryptsystem
+  
+}
 
-create_partitions
-setup_luks
-setup_LVM
-format_parts
-mount_parts
-install_base
-conf_locale_and_time
-conf_mkinitcpio
-conf_grub
+#create_partitions
+#setup_luks
+#setup_LVM
+#format_parts
+#mount_parts
+#install_base
+#conf_locale_and_time
+#conf_mkinitcpio
+#conf_grub
+mount_system
