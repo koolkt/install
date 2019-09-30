@@ -84,7 +84,7 @@ conf_locale_and_time() {
     echo "LANG=en_US.UTF-8" >> ${MOUNTPOINT}/etc/locale.conf
     echo "KEYMAP=fr" > ${MOUNTPOINT}/etc/vconsole.conf
     echo "${HOSTNAME}" > ${MOUNTPOINT}/etc/hostname
-    echo "12.0.0.1      localhost" > ${MOUNTPOINT}/etc/hosts
+    echo "127.0.0.1      localhost" > ${MOUNTPOINT}/etc/hosts
     echo "::1           localhost" >> ${MOUNTPOINT}/etc/hosts
     echo "127.0.0.1      ${HOSTNAME}.localdomain ${HOSTNAME}" >> ${MOUNTPOINT}/etc/hosts
     sed -i '/::1/s/$/'${HOSTNAME}'/' ${MOUNTPOINT}/etc/hosts
