@@ -1,6 +1,6 @@
 set -e
-DRIVE="/dev/nvme0n1"
-KEYMAP="fr"
+DRIVE="/dev/sda"
+KEYMAP="en"
 ROOT_ENCRYPTED_MAPPER_NAME=cryptsystem
 BOOT_ENCRYPTED_MAPPER_NAME=cryptboot
 SYSTEM_PART="/dev/disk/by-partlabel/${ROOT_ENCRYPTED_MAPPER_NAME}"
@@ -42,7 +42,7 @@ setup_luks(){
 setup_LVM() {
     pvcreate /dev/mapper/${ROOT_ENCRYPTED_MAPPER_NAME}
     vgcreate lvm /dev/mapper/${ROOT_ENCRYPTED_MAPPER_NAME}
-    lvcreate -L 16G lvm -n swap
+    lvcreate -L 8G lvm -n swap
     lvcreate -L 30G lvm -n root
     lvcreate -l 100%FREE lvm -n home
 }
@@ -67,13 +67,13 @@ mount_parts() {
 }
 
 install_base() {
-    pacstrap ${MOUNTPOINT} base grub os-prober efibootmgr dosfstools grub-efi-x86_64 intel-ucode iw wireless_tools dhcpcd dialog
+    pacstrap ${MOUNTPOINT} base linux linux-firmware grub os-prober efibootmgr dosfstools grub-efi-x86_64 intel-ucode iw wireless_tools dhcpcd dialog wpa_supplicant lvm2
     genfstab -L -p ${MOUNTPOINT} >> ${MOUNTPOINT}/etc/fstab
     cat ${MOUNTPOINT}/etc/fstab
 }
 
 conf_locale_and_time() {
-    chroot_cmd "ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime"
+    chroot_cmd "ln -sf /usr/share/zoneinfo/America/Mexico_City /etc/localtime"
     chroot_cmd "hwclock --systohc --utc"
     # uncomment desired localizations
     echo "en_US.UTF-8 UTF-8" >> ${MOUNTPOINT}/etc/locale.gen
@@ -82,12 +82,13 @@ conf_locale_and_time() {
     chroot_cmd "locale-gen"
     echo "LANGUAGE=en_US" >> ${MOUNTPOINT}/etc/locale.conf
     echo "LANG=en_US.UTF-8" >> ${MOUNTPOINT}/etc/locale.conf
-    echo "KEYMAP=fr" > ${MOUNTPOINT}/etc/vconsole.conf
+    echo "KEYMAP=en" > ${MOUNTPOINT}/etc/vconsole.conf
     echo "${HOSTNAME}" > ${MOUNTPOINT}/etc/hostname
     echo "127.0.0.1      localhost" > ${MOUNTPOINT}/etc/hosts
     echo "::1           localhost" >> ${MOUNTPOINT}/etc/hosts
     echo "127.0.0.1      ${HOSTNAME}.localdomain ${HOSTNAME}" >> ${MOUNTPOINT}/etc/hosts
     sed -i '/::1/s/$/'${HOSTNAME}'/' ${MOUNTPOINT}/etc/hosts
+    echo $HOSTNAME >> ${MOUNTPOINT}/etc/hostname
 }
 
 conf_mkinitcpio() {
@@ -98,7 +99,7 @@ conf_mkinitcpio() {
 
 # add boot partition to crypttab (replace <identifier> with UUID from 'blkid /dev/sda2')
 conf_grub(){
-    sed -i -e "s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX=\"cryptdevice=${SYSTEM_PART}:${ROOT_ENCRYPTED_MAPPER_NAME}:allow-discards\"/g" ${MOUNTPOINT}/etc/default/grub
+    sed -i -e "s@GRUB_CMDLINE_LINUX=.*@GRUB_CMDLINE_LINUX=\"cryptdevice=${SYSTEM_PART}:${ROOT_ENCRYPTED_MAPPER_NAME}:allow-discards\"@g" ${MOUNTPOINT}/etc/default/grub
     echo "GRUB_ENABLE_CRYPTODISK=y" >> ${MOUNTPOINT}/etc/default/grub
     echo "${BOOT_ENCRYPTED_MAPPER_NAME}  ${BOOT_PART}      none        noauto,luks" >> ${MOUNTPOINT}/etc/crypttab
     chroot_cmd "grub-install --target=x86_64-efi --efi-directory=${EFI_MOUNTPOINT} --bootloader-id=arch_grub --recheck"
@@ -114,20 +115,13 @@ mount_system() {
     mount LABEL=EFI  ${MOUNTPOINT}${EFI_MOUNTPOINT}
 }
 
-post_install() {
-    # keybord
-    # dpi
-    # dialog wpa_supplicant
-    # lenovos specific
-}
-
-#create_partitions
-#setup_luks
-#setup_LVM
-#format_parts
-#mount_parts
-#install_base
-#conf_locale_and_time
-#conf_mkinitcpio
-#conf_grub
+create_partitions
+setup_luks
+setup_LVM
+format_parts
+mount_parts
+install_base
+conf_locale_and_time
+conf_mkinitcpio
+conf_grub
 #mount_system
