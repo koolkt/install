@@ -1,8 +1,9 @@
 set -e
+FS_TYPE="f2fs"
 DRIVE="/dev/sda"
 KEYMAP="en"
-ROOT_ENCRYPTED_MAPPER_NAME=cryptsystem
-BOOT_ENCRYPTED_MAPPER_NAME=cryptboot
+ROOT_ENCRYPTED_MAPPER_NAME="cryptsystem"
+BOOT_ENCRYPTED_MAPPER_NAME="cryptboot"
 SYSTEM_PART="/dev/disk/by-partlabel/${ROOT_ENCRYPTED_MAPPER_NAME}"
 BOOT_PART="/dev/disk/by-partlabel/${BOOT_ENCRYPTED_MAPPER_NAME}"
 EFI_MOUNTPOINT="/boot/efi"
@@ -109,19 +110,42 @@ conf_grub(){
 mount_system() {
     cryptsetup open --type luks ${BOOT_PART} ${BOOT_ENCRYPTED_MAPPER_NAME}
     cryptsetup open --type luks ${SYSTEM_PART} ${ROOT_ENCRYPTED_MAPPER_NAME}
+    sleep 2
+    sync
+    sleep 2
     mount /dev/mapper/lvm-root ${MOUNTPOINT}
     mount /dev/mapper/lvm-home ${MOUNTPOINT}/home
     mount /dev/mapper/${BOOT_ENCRYPTED_MAPPER_NAME} ${MOUNTPOINT}/boot
     mount LABEL=EFI  ${MOUNTPOINT}${EFI_MOUNTPOINT}
 }
 
-create_partitions
-setup_luks
-setup_LVM
-format_parts
-mount_parts
-install_base
-conf_locale_and_time
-conf_mkinitcpio
-conf_grub
-#mount_system
+load_settings
+echo "Starting instalation"
+echo "Seetings:"
+echo "Install drive: ${DRIVE}"
+lsblk -o NAME,SIZE,MOUNTPOINT $DRIVE
+echo "Keymap: ${KEYMAP}"
+echo "Filesystem: ${FS_TYPE}"
+echo "ROOT / cryptab name: ${ROOT_ENCRYPTED_MAPPER_NAME}"
+echo "BOOT /boot name: ${BOOT_ENCRYPTED_MAPPER_NAME}"
+echo "System partition: ${SYSTEM_PART}"
+echo "Boot partition: ${BOOT_PART}"
+echo "Efi mountpoint ${EFI_MOUNTPOINT}"
+echo "Chroot mountpoint ${MOUNTPOINT}"
+# create_partitions
+sleep 2
+# setup_luks
+sleep 2
+# setup_LVM
+sleep 2
+# format_parts
+sleep 2
+# mount_parts
+sleep 2
+# install_base
+# conf_locale_and_time
+sleep 1
+# conf_mkinitcpio
+sleep 2
+# conf_grub
+mount_system
